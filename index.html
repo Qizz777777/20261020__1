@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>p5.js 基礎程式設計 - 多題 GIF 互動測驗系統</title>
+  <!-- 引入 p5.js 核心函式庫 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
+  <style>
+    /* 讓網頁全螢幕顯示，消除預設邊距與滾動條 */
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #f0f3f6;
+      font-family: "Microsoft JhengHei", Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+
+  <script>
+    // ==========================================
+    // 全域變數宣告區
+    // ==========================================
+    let questions = [];          // 儲存所有題目的陣列
+    let currentQuestionIndex = 0;// 目前顯示的題目索引
+    let score = 0;               // 總得分
+    let submitted = false;       // 是否已經點擊交卷
+    let confettiActive = false;  // 是否啟動彩帶特效
+    let confettiParticles = [];  // 彩帶粒子陣列
+
+    // 拖曳互動相關變數
+    let draggedOption = null;    // 目前被滑鼠按住拖曳的選項
+    let dragOffsetX = 0;         // 滑鼠與選項的 X 軸偏移量
+    let dragOffsetY = 0;         // 滑鼠與選項的 Y 軸偏移量
+
+    // 介面按鈕 UI
+    let prevButton;              // 上一題按鈕
+    let nextButton;              // 下一題按鈕
+    let submitButton;            // 交卷看成績按鈕
+
+    function setup() {
+      // 建立全螢幕且具響應式的 p5.js 畫布
+      let canvas = createCanvas(windowWidth, windowHeight);
+      canvas.style('display', 'block');
+      
+      // 初始化 p5.js 基礎簡易題目（每題皆有隨機 GIF 與 6 個選項）
+      initQuestions();
+      
+      // 建立控制按鈕
+      createUIElements();
+    }
+
+    function draw() {
+      // 設定畫布背景顏色（柔和的淺藍灰色調）
+      background(240, 243, 246);
+
+      // 繪製頂部標題與測驗指引
+      drawHeader();
+
+      // 如果尚未交卷，顯示測驗畫面；如果已交卷，顯示總成績與彩帶動畫
+      if (!submitted) {
+        drawQuizInterface();
+      } else {
+        drawResultInterface();
+        
+        // 若總成績高於 60%，繪製過關彩帶特效
+        if (confettiActive) {
+          updateAndDrawConfetti();
+        }
+      }
+    }
+
+    // 初始化 p5.js 基礎程式設計題目（多題設計，選項與題目皆隨機帶入網路 GIF）
+    function initQuestions() {
+      questions = [
+        {
+          title: "題目一：在 p5.js 中，用來設定畫布『背景顏色』的正確函式是？",
+          mainGif: "https://media.giphy.com/media/3o7TKSjRrfIPjeiDiM/giphy.gif",
+          options: [
+            { text: "background()", correct: true, gif: "https://media.giphy.com/media/xT5LMPj8P2CHQgOqys/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "canvasColor()", correct: false, gif: "https://media.giphy.com/media/3o7TKSjRrfIPjeiDiM/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "setColor()", correct: false, gif: "https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "bgColor()", correct: false, gif: "https://media.giphy.com/media/l0HlRnAWXxn0MhOBK/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "drawBackground()", correct: false, gif: "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "setScreen()", correct: false, gif: "https://media.giphy.com/media/3oKIPnAiaMCws8nOsE/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 }
+          ],
+          userSelection: null
+        },
+        {
+          title: "題目二：在畫布上繪製一個『圓形』的正確函式名稱是？",
+          mainGif: "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif",
+          options: [
+            { text: "circle()", correct: true, gif: "https://media.giphy.com/media/l0HlRnAWXxn0MhOBK/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "drawCircle()", correct: false, gif: "https://media.giphy.com/media/3o7TKSjRrfIPjeiDiM/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "round()", correct: false, gif: "https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "ball()", correct: false, gif: "https://media.giphy.com/media/xT5LMPj8P2CHQgOqys/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "makeCircle()", correct: false, gif: "https://media.giphy.com/media/3oKIPnAiaMCws8nOsE/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "shapeCircle()", correct: false, gif: "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 }
+          ],
+          userSelection: null
+        },
+        {
+          title: "題目三：用來設定圖形『內部填滿顏色』的正確函式是？",
+          mainGif: "https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif",
+          options: [
+            { text: "fill()", correct: true, gif: "https://media.giphy.com/media/3o7TKSjRrfIPjeiDiM/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "color()", correct: false, gif: "https://media.giphy.com/media/xT5LMPj8P2CHQgOqys/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "paint()", correct: false, gif: "https://media.giphy.com/media/l0HlRnAWXxn0MhOBK/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "shapeColor()", correct: false, gif: "https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "brush()", correct: false, gif: "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "setHue()", correct: false, gif: "https://media.giphy.com/media/3oKIPnAiaMCws8nOsE/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 }
+          ],
+          userSelection: null
+        },
+        {
+          title: "題目四：在畫布上繪製一個『矩形（長方形）』的正確函式是？",
+          mainGif: "https://media.giphy.com/media/l0HlRnAWXxn0MhOBK/giphy.gif",
+          options: [
+            { text: "rect()", correct: true, gif: "https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "square()", correct: false, gif: "https://media.giphy.com/media/3o7TKSjRrfIPjeiDiM/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "box()", correct: false, gif: "https://media.giphy.com/media/xT5LMPj8P2CHQgOqys/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "drawRect()", correct: false, gif: "https://media.giphy.com/media/l0HlRnAWXxn0MhOBK/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "rectangle()", correct: false, gif: "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 },
+            { text: "makeBox()", correct: false, gif: "https://media.giphy.com/media/3oKIPnAiaMCws8nOsE/giphy.gif", x: 0, y: 0, origX: 0, origY: 0 }
+          ],
+          userSelection: null
+        }
+      ];
+      
+      // 將每一題的 6 個選項順序隨機打亂
+      for (let q of questions) {
+        shuffle(q.options, true);
+      }
+    }
+
+    // 建立畫布下方的操作按鈕（上一題、下一題、交卷看成績）
+    function createUIElements() {
+      // 上一題按鈕
+      prevButton = createButton('⬅ 上一題');
+      prevButton.position(width / 2 - 160, height - 75);
+      prevButton.style('padding', '12px 20px');
+      prevButton.style('font-size', '15px');
+      prevButton.style('background-color', '#6c757d');
+      prevButton.style('color', 'white');
+      prevButton.style('border', 'none');
+      prevButton.style('border-radius', '8px');
+      prevButton.style('cursor', 'pointer');
+      prevButton.style('box-shadow', '0 4px 6px rgba(0,0,0,0.1)');
+      
+      prevButton.mousePressed(() => {
+        if (!submitted && currentQuestionIndex > 0) {
+          currentQuestionIndex--;
+          updateButtonVisibility();
+        }
+      });
+
+      // 下一題按鈕
+      nextButton = createButton('下一題 ➡');
+      nextButton.position(width / 2 + 30, height - 75);
+      nextButton.style('padding', '12px 20px');
+      nextButton.style('font-size', '15px');
+      nextButton.style('background-color', '#0d6efd');
+      nextButton.style('color', 'white');
+      nextButton.style('border', 'none');
+      nextButton.style('border-radius', '8px');
+      nextButton.style('cursor', 'pointer');
+      nextButton.style('box-shadow', '0 4px 6px rgba(0,0,0,0.1)');
+      
+      nextButton.mousePressed(() => {
+        if (!submitted && currentQuestionIndex < questions.length - 1) {
+          currentQuestionIndex++;
+          updateButtonVisibility();
+        }
+      });
+
+      // 交卷看成績按鈕（最後一題才會出現）
+      submitButton = createButton('交卷看總成績 🎯');
+      submitButton.position(width / 2 - 80, height - 75);
+      submitButton.style('padding', '12px 24px');
+      submitButton.style('font-size', '15px');
+      submitButton.style('background-color', '#198754');
+      submitButton.style('color', 'white');
+      submitButton.style('border', 'none');
+      submitButton.style('border-radius', '8px');
+      submitButton.style('cursor', 'pointer');
+      submitButton.style('box-shadow', '0 4px 6px rgba(0,0,0,0.1)');
+      
+      submitButton.mousePressed(() => {
+        if (!submitted) {
+          calculateScore();
+          submitted = true;
+          prevButton.hide();
+          nextButton.hide();
+          submitButton.hide();
+        }
+      });
+
+      // 初始化按鈕顯示狀態
+      updateButtonVisibility();
+    }
+
+    // 根據目前題目的索引，動態調整按鈕的顯示與隱藏
+    function updateButtonVisibility() {
+      if (currentQuestionIndex === 0) {
+        prevButton.hide();
+      } else {
+        prevButton.show();
+      }
+
+      if (currentQuestionIndex === questions.length - 1) {
+        nextButton.hide();
+        submitButton.show();
+      } else {
+        nextButton.show();
+        submitButton.hide();
+      }
+    }
+
+    // 繪製頂部標題說明
+    function drawHeader() {
+      fill(33, 37, 41);
+      noStroke();
+      textAlign(CENTER, CENTER);
+      textSize(24);
+      text("p5.js 基礎程式設計 - 多題互動測驗系統", width / 2, 30);
+      
+      textSize(14);
+      fill(108, 117, 125);
+      let progressText = submitted ? "測驗已完成" : `目前進度：第 ${currentQuestionIndex + 1} 題 / 共 ${questions.length} 題`;
+      text(progressText + " | 請觀察上方題目與 GIF，將正確選項拖曳至框中", width / 2, 60);
+    }
+
+    // 繪製測驗主介面（上方動畫區與下方 6 個 GIF 選項）
+    function drawQuizInterface() {
+      let q = questions[currentQuestionIndex];
+      
+      // --- 1. 上方題目與示範 GIF 區塊 ---
+      fill(255);
+      stroke(222, 226, 230);
+      strokeWeight(2);
+      rectMode(CENTER);
+      
+      let boxWidth = min(width * 0.8, 650);
+      let boxHeight = 195;
+      let boxX = width / 2;
+      let boxY = 165;
+      rect(boxX, boxY, boxWidth, boxHeight, 15);
+
+      // 繪製題目文字
+      fill(33, 37, 41);
+      noStroke();
+      textSize(16);
+      textAlign(CENTER, CENTER);
+      text(q.title, boxX, boxY - 65);
+
+      // 繪製拖曳放置目標框
+      let dropZoneWidth = 260;
+      let dropZoneHeight = 65;
+      let dropZoneX = boxX;
+      let dropZoneY = boxY + 25;
+      
+      fill(248, 249, 250);
+      stroke(13, 110, 253);
+      strokeWeight(1.5);
+      rect(dropZoneX, dropZoneY, dropZoneWidth, dropZoneHeight, 8);
+
+      // 記錄目標框範圍供後續碰撞檢測
+      q.dropZone = { x: dropZoneX - dropZoneWidth / 2, y: dropZoneY - dropZoneHeight / 2, w: dropZoneWidth, h: dropZoneHeight };
+
+      // 若使用者已經把選項拖進來，顯示該選項的文字
+      if (q.userSelection) {
+        fill(13, 110, 253);
+        noStroke();
+        textSize(15);
+        text("已選擇: " + q.userSelection.text, dropZoneX, dropZoneY);
+      } else {
+        fill(140, 147, 155);
+        noStroke();
+        textSize(14);
+        text("👇 請將下方正確的 GIF 選項卡片拖曳至此處", dropZoneX, dropZoneY);
+      }
+
+      // --- 2. 下方六個 GIF 選項卡片區塊 ---
+      let startX = width / 2 - 320;
+      let startY = 320;
+      let spacingX = 220;
+      let spacingY = 125;
+
+      for (let i = 0; i < q.options.length; i++) {
+        let opt = q.options[i];
+        let col = i % 3;
+        let row = floor(i / 3);
+        
+        // 如果該選項沒有在被拖曳中，設定其預設網格位置
+        if (!draggedOption || draggedOption !== opt) {
+          if (opt.x === 0 && opt.y === 0) {
+            opt.x = startX + col * spacingX;
+            opt.y = startY + row * spacingY;
+            opt.origX = opt.x;
+            opt.origY = opt.y;
+          }
+        }
+
+        // 選項卡片尺寸
+        let optW = 190;
+        let optH = 105;
+        
+        rectMode(CENTER);
+        if (q.userSelection === opt) {
+          fill(233, 236, 239);
+          stroke(173, 181, 189);
+        } else {
+          fill(255);
+          stroke(222, 226, 230);
+          strokeWeight(2);
+        }
+        rect(opt.x, opt.y, optW, optH, 10);
+
+        // 模擬選項 GIF 圖片區塊的背景
+        fill(240, 243, 246);
+        noStroke();
+        rect(opt.x, opt.y - 15, optW - 20, 48, 6);
+
+        // 繪製選項文字描述
+        fill(33, 37, 41);
+        noStroke();
+        textSize(13);
+        textAlign(CENTER, CENTER);
+        text("🎬 " + opt.text, opt.x, opt.y + 28);
+
+        // 儲存每個選項的寬高範圍供滑鼠點擊判定用
+        opt.w = optW;
+        opt.h = optH;
+      }
+    }
+
+    // 滑鼠按下：檢查是否點擊到某個選項準備拖曳
+    function mousePressed() {
+      if (submitted) return;
+
+      let q = questions[currentQuestionIndex];
+      for (let opt of q.options) {
+        if (
+          mouseX > opt.x - opt.w / 2 &&
+          mouseX < opt.x + opt.w / 2 &&
+          mouseY > opt.y - opt.h / 2 &&
+          mouseY < opt.y + opt.h / 2
+        ) {
+          draggedOption = opt;
+          dragOffsetX = opt.x - mouseX;
+          dragOffsetY = opt.y - mouseY;
+
+          if (q.userSelection === opt) {
+            q.userSelection = null;
+          }
+          break;
+        }
+      }
+    }
+
+    // 滑鼠拖曳：更新被拖曳選項的座標
+    function mouseDragged() {
+      if (draggedOption && !submitted) {
+        draggedOption.x = mouseX + dragOffsetX;
+        draggedOption.y = mouseY + dragOffsetY;
+      }
+    }
+
+    // 滑鼠放開：判斷是否成功放入目標區域
+    function mouseReleased() {
+      if (draggedOption && !submitted) {
+        let q = questions[currentQuestionIndex];
+        let dz = q.dropZone;
+
+        if (
+          draggedOption.x > dz.x &&
+          draggedOption.x < dz.x + dz.w &&
+          draggedOption.y > dz.y &&
+          draggedOption.y < dz.y + dz.h
+        ) {
+          if (q.userSelection && q.userSelection !== draggedOption) {
+            q.userSelection.x = q.userSelection.origX;
+            q.userSelection.y = q.userSelection.origY;
+          }
+          q.userSelection = draggedOption;
+          draggedOption.x = dz.x + dz.w / 2;
+          draggedOption.y = dz.y + dz.h / 2;
+        } else {
+          if (q.userSelection !== draggedOption) {
+            draggedOption.x = draggedOption.origX;
+            draggedOption.y = draggedOption.origY;
+          }
+        }
+        draggedOption = null;
+      }
+    }
+
+    // 計算總成績
+    function calculateScore() {
+      score = 0;
+      let total = questions.length;
+      
+      for (let q of questions) {
+        if (q.userSelection && q.userSelection.correct) {
+          score += 1;
+        }
+      }
+
+      let percentage = (score / total) * 100;
+      if (percentage > 60) {
+        confettiActive = true;
+        initConfetti();
+      }
+    }
+
+    // 繪製成績與總結介面
+    function drawResultInterface() {
+      fill(255);
+      stroke(222, 226, 230);
+      strokeWeight(2);
+      rectMode(CENTER);
+      
+      let resW = min(width * 0.8, 500);
+      let resH = 240;
+      let resX = width / 2;
+      let resY = height / 2 - 20;
+      
+      rect(resX, resY, resW, resH, 15);
+
+      fill(33, 37, 41);
+      noStroke();
+      textSize(24);
+      textAlign(CENTER, CENTER);
+      text("🎉 測驗總成績結算", resX, resY - 70);
+
+      let total = questions.length;
+      let percentage = (score / total) * 100;
+      textSize(20);
+      text(`你的得分：${score} / ${total} (${percentage}%)`, resX, resY - 15);
+
+      textSize(16);
+      if (percentage > 60) {
+        fill(40, 167, 69);
+        text("太棒了！成績超過 60%，成功解鎖彩帶特效！🌟", resX, resY + 40);
+      } else {
+        fill(220, 53, 69);
+        text("再加油一下！多複習 p5.js 基礎觀念就能過關喔！💪", resX, resY + 40);
+      }
+    }
+
+    // 初始化彩帶粒子系統
+    function initConfetti() {
+      confettiParticles = [];
+      for (let i = 0; i < 180; i++) {
+        confettiParticles.push({
+          x: random(width),
+          y: random(-height, 0),
+          size: random(8, 16),
+          color: color(random(200, 255), random(100, 200), random(100, 255)),
+          speedY: random(2, 6),
+          speedX: random(-2, 2),
+          rotation: random(TWO_PI),
+          rotationSpeed: random(0.02, 0.08)
+        });
+      }
+    }
+
+    // 更新並繪製過關彩帶動畫
+    function updateAndDrawConfetti() {
+      noStroke();
+      for (let p of confettiParticles) {
+        push();
+        translate(p.x, p.y);
+        rotate(p.rotation);
+        fill(p.color);
+        rectMode(CENTER);
+        rect(0, 0, p.size, p.size * 0.5, 2);
+        pop();
+
+        p.y += p.speedY;
+        p.x += p.speedX;
+        p.rotation += p.rotationSpeed;
+
+        if (p.y > height) {
+          p.y = random(-50, 0);
+          p.x = random(width);
+        }
+      }
+    }
+
+    // 視窗大小改變時自動調整畫布與按鈕響應
+    function windowResized() {
+      resizeCanvas(windowWidth, windowHeight);
+      if (prevButton) {
+        prevButton.position(width / 2 - 160, height - 75);
+      }
+      if (nextButton) {
+        nextButton.position(width / 2 + 30, height - 75);
+      }
+      if (submitButton) {
+        submitButton.position(width / 2 - 80, height - 75);
+      }
+    }
+  </script>
+
+</body>
+</html>
